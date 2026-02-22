@@ -1,4 +1,4 @@
-import { getTronWeb } from "./tron";
+import { buildContractTransaction, getReadonlyTronWeb, signAndBroadcast, WalletSigner } from "./tron";
 import trc20Abi from "../abis/trc20.json";
 
 export type TokenInfo = {
@@ -13,10 +13,7 @@ export const TOKEN_LIST: TokenInfo[] = [
 ];
 
 const requireTronWeb = () => {
-  const tronWeb = getTronWeb();
-  if (!tronWeb || !tronWeb.ready) {
-    throw new Error("TronWeb not available. Connect a Tron-compatible wallet.");
-  }
+  const tronWeb = getReadonlyTronWeb();
   return tronWeb;
 };
 
@@ -42,9 +39,22 @@ export const allowance = async (tokenAddress: string, owner: string, spender: st
   return BigInt(value.toString());
 };
 
-export const approve = async (tokenAddress: string, spender: string, amount: bigint) => {
-  const contract = await getTokenContract(tokenAddress);
-  return contract.approve(spender, amount.toString()).send();
+export const approve = async (
+  tokenAddress: string,
+  spender: string,
+  amount: bigint,
+  signer: WalletSigner
+) => {
+  const tx = await buildContractTransaction(
+    tokenAddress,
+    "approve(address,uint256)",
+    [
+      { type: "address", value: spender },
+      { type: "uint256", value: amount.toString() }
+    ],
+    signer.address
+  );
+  return signAndBroadcast(tx, signer);
 };
 
 export const balanceOf = async (tokenAddress: string, owner: string): Promise<bigint> => {
@@ -57,10 +67,11 @@ export const ensureAllowance = async (
   tokenAddress: string,
   owner: string,
   spender: string,
-  requiredAmount: bigint
+  requiredAmount: bigint,
+  signer: WalletSigner
 ): Promise<boolean> => {
   const current = await allowance(tokenAddress, owner, spender);
   if (current >= requiredAmount) return false;
-  await approve(tokenAddress, spender, requiredAmount);
+  await approve(tokenAddress, spender, requiredAmount, signer);
   return true;
 };

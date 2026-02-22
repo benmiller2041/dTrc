@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import TronWeb from "tronweb";
+import { DEFAULT_FEE_LIMIT, TRON_GRID_API } from "./constants";
 
 export type TronWalletState = {
   address: string | null;
@@ -6,6 +8,20 @@ export type TronWalletState = {
   chainId: string | null;
   connect: () => Promise<void>;
 };
+
+export type WalletConnectSigner = {
+  kind: "walletconnect";
+  address: string;
+  client: any;
+  session: any;
+};
+
+export type TronLinkSigner = {
+  kind: "tronlink";
+  address: string;
+};
+
+export type WalletSigner = WalletConnectSigner | TronLinkSigner;
 
 const getChainId = (host?: string) => {
   if (!host) return null;
@@ -18,6 +34,78 @@ const getChainId = (host?: string) => {
 export const getTronWeb = () => {
   if (typeof window === "undefined") return null;
   return window.tronWeb ?? null;
+};
+
+let readonlyTronWeb: TronWeb | null = null;
+
+export const getReadonlyTronWeb = () => {
+  if (readonlyTronWeb) return readonlyTronWeb;
+  readonlyTronWeb = new TronWeb({
+    fullHost: TRON_GRID_API
+  });
+  return readonlyTronWeb;
+};
+
+export const buildContractTransaction = async (
+  contractAddress: string,
+  functionSelector: string,
+  parameters: { type: string; value: any }[],
+  ownerAddress: string,
+  feeLimit = DEFAULT_FEE_LIMIT,
+  callValue = 0
+) => {
+  const tronWeb = getReadonlyTronWeb();
+  const result = await tronWeb.transactionBuilder.triggerSmartContract(
+    contractAddress,
+    functionSelector,
+    { feeLimit, callValue },
+    parameters,
+    ownerAddress
+  );
+  if (!result?.transaction) {
+    throw new Error("Failed to build transaction.");
+  }
+  return result.transaction;
+};
+
+export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<string> => {
+  if (signer.kind === "tronlink") {
+    const tronWeb = getTronWeb();
+    if (!tronWeb) {
+      throw new Error("TronLink not available to sign the transaction.");
+    }
+    const signed = await tronWeb.trx.sign(tx);
+    const result = await tronWeb.trx.sendRawTransaction(signed);
+    const txid = result?.txid || result?.transaction?.txID;
+    if (!txid) {
+      throw new Error(result?.message || "Failed to broadcast transaction.");
+    }
+    return txid;
+  }
+
+  const response = await signer.client.request({
+    topic: signer.session.topic,
+    chainId: "tron:0x2b6653dc",
+    request: {
+      method: "tron_signTransaction",
+      params: {
+        address: signer.address,
+        transaction: tx
+      }
+    }
+  });
+
+  const signedTx = (response as any)?.transaction ?? response;
+  const broadcast = await fetch(`${TRON_GRID_API}/wallet/broadcasttransaction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(signedTx)
+  });
+  const result = await broadcast.json();
+  if (!result?.result) {
+    throw new Error(result?.message || "WalletConnect broadcast failed.");
+  }
+  return result.txid;
 };
 
 export const useTronWallet = (): TronWalletState => {

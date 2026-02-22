@@ -9,6 +9,7 @@ A Next.js (App Router) + TypeScript frontend that integrates directly with the S
 - Swap `swapExactTokensForTokens` / `swapTokensForExactTokens`
 - Slippage + deadline handling
 - Transaction hash + status display
+ - WalletConnect signing + broadcast via TronGrid
 
 ## Prerequisites
 - Node.js 18+
@@ -26,6 +27,7 @@ npm install
 - `SUNSWAP_ROUTER_ADDRESS`
 - `USDT_TRC20_ADDRESS` (default set)
 - `WTRX_ADDRESS` (default set)
+- `TRON_GRID_API` (default set to `https://api.trongrid.io`)
 
 3. (Optional) WalletConnect project ID for Trust Wallet:
 
@@ -61,4 +63,4 @@ npm run dev
 - Shows txid and success state
 
 ## Notes
-- Trust Wallet connection is via WalletConnect. Swaps require a wallet that injects TronWeb (e.g. TronLink) unless you implement a WalletConnect Tron provider.
+- Trust Wallet connection is via WalletConnect. The app signs transactions via WalletConnect and broadcasts via TronGrid when TronLink is not available.

@@ -1,12 +1,9 @@
 import { SUNSWAP_ROUTER_ADDRESS, USDT_TRC20_ADDRESS } from "./constants";
 import routerAbi from "../abis/router.json";
-import { getTronWeb } from "./tron";
+import { buildContractTransaction, getReadonlyTronWeb, signAndBroadcast, WalletSigner } from "./tron";
 
 const requireTronWeb = () => {
-  const tronWeb = getTronWeb();
-  if (!tronWeb || !tronWeb.ready) {
-    throw new Error("TronWeb not available. Connect a Tron-compatible wallet.");
-  }
+  const tronWeb = getReadonlyTronWeb();
   return tronWeb;
 };
 
@@ -32,18 +29,22 @@ export const swapExactTokensForTokens = async (
   amountOutMin: bigint,
   path: string[],
   to: string,
-  deadline: number
+  deadline: number,
+  signer: WalletSigner
 ) => {
-  const router = await getRouterContract();
-  return router
-    .swapExactTokensForTokens(
-      amountIn.toString(),
-      amountOutMin.toString(),
-      path,
-      to,
-      deadline
-    )
-    .send();
+  const tx = await buildContractTransaction(
+    SUNSWAP_ROUTER_ADDRESS,
+    "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+    [
+      { type: "uint256", value: amountIn.toString() },
+      { type: "uint256", value: amountOutMin.toString() },
+      { type: "address[]", value: path },
+      { type: "address", value: to },
+      { type: "uint256", value: deadline }
+    ],
+    signer.address
+  );
+  return signAndBroadcast(tx, signer);
 };
 
 export const swapTokensForExactTokens = async (
@@ -51,18 +52,22 @@ export const swapTokensForExactTokens = async (
   amountInMax: bigint,
   path: string[],
   to: string,
-  deadline: number
+  deadline: number,
+  signer: WalletSigner
 ) => {
-  const router = await getRouterContract();
-  return router
-    .swapTokensForExactTokens(
-      amountOut.toString(),
-      amountInMax.toString(),
-      path,
-      to,
-      deadline
-    )
-    .send();
+  const tx = await buildContractTransaction(
+    SUNSWAP_ROUTER_ADDRESS,
+    "swapTokensForExactTokens(uint256,uint256,address[],address,uint256)",
+    [
+      { type: "uint256", value: amountOut.toString() },
+      { type: "uint256", value: amountInMax.toString() },
+      { type: "address[]", value: path },
+      { type: "address", value: to },
+      { type: "uint256", value: deadline }
+    ],
+    signer.address
+  );
+  return signAndBroadcast(tx, signer);
 };
 
 export const buildPath = (tokenIn: string, tokenOut: string): string[] => {

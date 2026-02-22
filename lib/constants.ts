@@ -4,3 +4,5 @@ export const WTRX_ADDRESS = "TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR";
 
 export const DEFAULT_SLIPPAGE_BPS = 50; // 0.5%
 export const DEFAULT_DEADLINE_SECONDS = 1200;
+export const DEFAULT_FEE_LIMIT = 150_000_000;
+export const TRON_GRID_API = "https://api.trongrid.io";
