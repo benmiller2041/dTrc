@@ -21,6 +21,15 @@ declare global {
       sign: (tx: any) => Promise<any>;
       sendRawTransaction: (tx: any) => Promise<any>;
     };
+    transactionBuilder: {
+      triggerSmartContract: (
+        contractAddress: string,
+        functionSelector: string,
+        options: { feeLimit?: number; callValue?: number },
+        parameters: { type: string; value: any }[],
+        ownerAddress: string
+      ) => Promise<{ transaction: any }>;
+    };
     contract: (abi?: any, address?: string) => any;
     toBigNumber: (value: string | number) => any;
   }

@@ -7,10 +7,12 @@ import { TronWalletState, useTronWallet, WalletSigner } from "../../lib/tron";
 
 const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "";
 
+type SignClientInstance = InstanceType<typeof SignClient>;
+
 type WalletConnectState = {
   address: string | null;
   connected: boolean;
-  client: SignClient | null;
+  client: SignClientInstance | null;
   session: any | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -28,7 +30,7 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const tron = useTronWallet();
-  const [client, setClient] = useState<SignClient | null>(null);
+  const [client, setClient] = useState<SignClientInstance | null>(null);
   const [modal, setModal] = useState<WalletConnectModal | null>(null);
   const [session, setSession] = useState<any | null>(null);
   const [wcAddress, setWcAddress] = useState<string | null>(null);

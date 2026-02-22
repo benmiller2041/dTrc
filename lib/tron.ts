@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import TronWeb from "tronweb";
+import TronWebLib from "tronweb";
 import { DEFAULT_FEE_LIMIT, TRON_GRID_API } from "./constants";
 
 export type TronWalletState = {
@@ -36,14 +36,15 @@ export const getTronWeb = () => {
   return window.tronWeb ?? null;
 };
 
+const TronWebCtor = (TronWebLib as any).default ?? TronWebLib;
 let readonlyTronWeb: TronWeb | null = null;
 
-export const getReadonlyTronWeb = () => {
+export const getReadonlyTronWeb = (): TronWeb => {
   if (readonlyTronWeb) return readonlyTronWeb;
-  readonlyTronWeb = new TronWeb({
+  readonlyTronWeb = new TronWebCtor({
     fullHost: TRON_GRID_API
   });
-  return readonlyTronWeb;
+  return readonlyTronWeb as TronWeb;
 };
 
 export const buildContractTransaction = async (
