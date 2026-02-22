@@ -26,7 +26,7 @@ const parseError = (error: unknown) => {
 };
 
 export default function SwapForm() {
-  const { signer, address, isConnected, tron } = useWallet();
+  const { signer, address, isConnected, chainId } = useWallet();
   const [tokenIn, setTokenIn] = useState(TOKEN_LIST[0]);
   const [tokenOut, setTokenOut] = useState(TOKEN_LIST[1] ?? TOKEN_LIST[0]);
   const [amountIn, setAmountIn] = useState("");
@@ -216,7 +216,7 @@ export default function SwapForm() {
             <div className="text-xs text-zinc-500">SunSwap router direct integration</div>
           </div>
           <div className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-zinc-400">
-            {tron.chainId || "Unknown network"}
+            {chainId || "Unknown network"}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

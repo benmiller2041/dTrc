@@ -24,6 +24,7 @@ type WalletContextValue = {
   signer: WalletSigner | null;
   address: string | null;
   isConnected: boolean;
+  chainId: string | null;
 };
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -136,15 +137,28 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [tron.isConnected, tron.address, walletConnectState.connected, wcAddress, client, session]);
 
+  const chainId = useMemo(() => {
+    if (tron.chainId) return tron.chainId;
+    if (walletConnectState.connected && session) {
+      const chain = session.namespaces?.tron?.accounts?.[0];
+      if (chain?.includes("0x2b6653dc")) return "tron-mainnet";
+      if (chain?.includes("shasta")) return "tron-shasta";
+      if (chain?.includes("nile")) return "tron-nile";
+      return "tron-mainnet";
+    }
+    return null;
+  }, [tron.chainId, walletConnectState.connected, session]);
+
   const value = useMemo<WalletContextValue>(
     () => ({
       tron,
       walletConnect: walletConnectState,
       signer,
       address: signer?.address ?? null,
-      isConnected: Boolean(signer)
+      isConnected: Boolean(signer),
+      chainId
     }),
-    [tron, walletConnectState, signer]
+    [tron, walletConnectState, signer, chainId]
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
