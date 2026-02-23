@@ -52,10 +52,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       const wcModal = new WalletConnectModal({
         projectId: WALLETCONNECT_PROJECT_ID,
-        themeMode: "light",
-        explorerRecommendedWalletIds: [
-          "c57ca95b47569778a828d191781d4b2f091f95be88980e7ac14d9a53c0d248f8"
-        ]
+        themeMode: "light"
       });
 
       setClient(signClient);
