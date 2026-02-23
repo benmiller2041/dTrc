@@ -36,11 +36,17 @@ export const getTronWeb = () => {
   return window.tronWeb ?? null;
 };
 
-const TronWebCtor = (TronWebLib as any).default ?? TronWebLib;
+const TronWebCtor =
+  (TronWebLib as any).default ??
+  (TronWebLib as any).TronWeb ??
+  TronWebLib;
 let readonlyTronWeb: TronWeb | null = null;
 
 export const getReadonlyTronWeb = (): TronWeb => {
   if (readonlyTronWeb) return readonlyTronWeb;
+  if (typeof TronWebCtor !== "function") {
+    throw new Error("TronWeb constructor not available in this environment.");
+  }
   readonlyTronWeb = new TronWebCtor({
     fullHost: TRON_GRID_API
   });
