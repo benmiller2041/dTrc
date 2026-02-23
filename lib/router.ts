@@ -12,15 +12,27 @@ export const getRouterContract = async () => {
   return tronWeb.contract(routerAbi as any, SUNSWAP_ROUTER_ADDRESS);
 };
 
-export const getAmountsOut = async (amountIn: bigint, path: string[]): Promise<bigint[]> => {
+export const getAmountsOut = async (
+  amountIn: bigint,
+  path: string[],
+  ownerAddress?: string | null
+): Promise<bigint[]> => {
   const router = await getRouterContract();
-  const result = await router.getAmountsOut(amountIn.toString(), path).call();
+  const result = await router
+    .getAmountsOut(amountIn.toString(), path)
+    .call(ownerAddress ? { from: ownerAddress } : undefined);
   return result.map((value: string) => BigInt(value));
 };
 
-export const getAmountsIn = async (amountOut: bigint, path: string[]): Promise<bigint[]> => {
+export const getAmountsIn = async (
+  amountOut: bigint,
+  path: string[],
+  ownerAddress?: string | null
+): Promise<bigint[]> => {
   const router = await getRouterContract();
-  const result = await router.getAmountsIn(amountOut.toString(), path).call();
+  const result = await router
+    .getAmountsIn(amountOut.toString(), path)
+    .call(ownerAddress ? { from: ownerAddress } : undefined);
   return result.map((value: string) => BigInt(value));
 };
 

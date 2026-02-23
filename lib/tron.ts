@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import TronWebLib from "tronweb";
-import { DEFAULT_FEE_LIMIT, TRON_GRID_API } from "./constants";
+import { DEFAULT_FEE_LIMIT, TRON_GRID_API, WTRX_ADDRESS } from "./constants";
 
 export type TronWalletState = {
   address: string | null;
@@ -47,10 +47,13 @@ export const getReadonlyTronWeb = (): TronWeb => {
   if (typeof TronWebCtor !== "function") {
     throw new Error("TronWeb constructor not available in this environment.");
   }
-  readonlyTronWeb = new TronWebCtor({
+  const instance = new TronWebCtor({
     fullHost: TRON_GRID_API
   });
-  return readonlyTronWeb as TronWeb;
+  // Ensure constant calls have a valid owner_address for TRONGrid.
+  instance.setAddress(WTRX_ADDRESS);
+  readonlyTronWeb = instance as TronWeb;
+  return readonlyTronWeb;
 };
 
 export const buildContractTransaction = async (

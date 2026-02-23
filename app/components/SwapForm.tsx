@@ -54,12 +54,12 @@ export default function SwapForm() {
     try {
       if (exactMode === "exactIn") {
         const amountInBase = parseUnits(amountIn, tokenIn.decimals);
-        const amounts = await getAmountsOut(amountInBase, path);
+        const amounts = await getAmountsOut(amountInBase, path, address);
         const out = amounts[amounts.length - 1] ?? 0n;
         setAmountOut(formatUnits(out, tokenOut.decimals));
       } else {
         const amountOutBase = parseUnits(amountOut, tokenOut.decimals);
-        const amounts = await getAmountsIn(amountOutBase, path);
+        const amounts = await getAmountsIn(amountOutBase, path, address);
         const input = amounts[0] ?? 0n;
         setAmountIn(formatUnits(input, tokenIn.decimals));
       }
@@ -68,7 +68,7 @@ export default function SwapForm() {
     } finally {
       setIsQuoting(false);
     }
-  }, [amountIn, amountOut, canQuote, exactMode, path, tokenIn.decimals, tokenOut.decimals]);
+  }, [amountIn, amountOut, canQuote, exactMode, path, tokenIn.decimals, tokenOut.decimals, address]);
 
   useEffect(() => {
     if (!canQuote) return;
