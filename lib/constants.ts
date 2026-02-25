@@ -1,4 +1,4 @@
-export const SUNSWAP_ROUTER_ADDRESS = "TJ4NNy8xZEqsowCBhLvZ45LCqPdGjkET5j"; // TODO: replace with actual SunSwap Router address
+export const SUNSWAP_ROUTER_ADDRESS = "TNJVzGqKBWkJxJB5XYSqGAwUTV15U24pPq"; // SunSwap V2 Router (updated Jan 2026)
 export const USDT_TRC20_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 export const WTRX_ADDRESS = "TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR";
 

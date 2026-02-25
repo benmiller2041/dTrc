@@ -21,7 +21,8 @@ export const getAmountsOut = async (
   const result = await router
     .getAmountsOut(amountIn.toString(), path)
     .call(ownerAddress ? { from: ownerAddress } : undefined);
-  return result.map((value: string) => BigInt(value));
+  const amounts: any[] = Array.isArray(result) ? result : Object.values(result);
+  return amounts.map((value: any) => BigInt(value.toString()));
 };
 
 export const getAmountsIn = async (
@@ -33,7 +34,8 @@ export const getAmountsIn = async (
   const result = await router
     .getAmountsIn(amountOut.toString(), path)
     .call(ownerAddress ? { from: ownerAddress } : undefined);
-  return result.map((value: string) => BigInt(value));
+  const amounts: any[] = Array.isArray(result) ? result : Object.values(result);
+  return amounts.map((value: any) => BigInt(value.toString()));
 };
 
 export const swapExactTokensForTokens = async (

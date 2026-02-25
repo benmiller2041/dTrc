@@ -22,6 +22,7 @@ const parseError = (error: unknown) => {
   if (lower.includes("allowance")) return "Allowance too low. Approve token first.";
   if (lower.includes("expired") || lower.includes("deadline")) return "Deadline expired.";
   if (lower.includes("insufficient_output")) return "Slippage exceeded. Try higher slippage tolerance.";
+  if (lower.includes("reverted") || lower.includes("thrown an error")) return "Contract call failed. No liquidity for this pair or amount is too small.";
   return message;
 };
 
