@@ -64,7 +64,9 @@ export const buildContractTransaction = async (
   feeLimit = DEFAULT_FEE_LIMIT,
   callValue = 0
 ) => {
-  const tronWeb = getReadonlyTronWeb();
+  // Prefer TronLink's authenticated TronWeb for building transactions — the
+  // read-only instance has no API key and TronGrid will throttle/hang it.
+  const tronWeb = getTronWeb() ?? getReadonlyTronWeb();
   const result = await tronWeb.transactionBuilder.triggerSmartContract(
     contractAddress,
     functionSelector,

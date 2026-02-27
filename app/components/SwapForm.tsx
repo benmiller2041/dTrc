@@ -41,6 +41,7 @@ export default function SwapForm() {
   const [isSwapping, setIsSwapping] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
+  const [approvalVersion, setApprovalVersion] = useState(0);
 
   // b5e0f8a6eb333df1fdd8a46fcb6b20e9
 
@@ -103,7 +104,7 @@ export default function SwapForm() {
       }
     };
     void check();
-  }, [amountIn, exactMode, slippageBps, tokenIn.address, tokenIn.decimals, address]);
+  }, [amountIn, exactMode, slippageBps, tokenIn.address, tokenIn.decimals, address, approvalVersion]);
 
   const onApprove = useCallback(async () => {
     if (!address || !signer) return;
@@ -121,6 +122,8 @@ export default function SwapForm() {
         requiredAmount,
         signer
       );
+      // Trigger needsApproval re-check now that approval has been broadcast
+      setApprovalVersion((v) => v + 1);
     } catch (err) {
       setQuoteError(parseError(err));
     } finally {
@@ -146,6 +149,9 @@ export default function SwapForm() {
       }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
+    // Timed out — tx was broadcast but receipt not found in time
+    setTxStatus("error");
+    setQuoteError("Transaction confirmation timed out. Check your wallet for the status.");
   };
 
   const onSwap = useCallback(async () => {
@@ -161,13 +167,12 @@ export default function SwapForm() {
         const amountInBase = parseUnits(amountIn, tokenIn.decimals);
         const quotedOut = parseUnits(amountOut || "0", tokenOut.decimals);
         const amountOutMin = applySlippageMin(quotedOut, slippageBps);
-        await ensureAllowance(
-          tokenIn.address,
-          address,
-          SUNSWAP_ROUTER_ADDRESS,
-          amountInBase,
-          signer
-        );
+        // Check allowance only — don't re-approve here (use the Approve button).
+        // Calling ensureAllowance here would open a surprise TronLink popup.
+        const currentAllowance = await allowance(tokenIn.address, address, SUNSWAP_ROUTER_ADDRESS);
+        if (currentAllowance < amountInBase) {
+          throw new Error("Allowance too low. Please use the Approve button first.");
+        }
         const txid = await swapExactTokensForTokens(
           amountInBase,
           amountOutMin,
@@ -177,18 +182,15 @@ export default function SwapForm() {
           signer
         );
         setTxHash(txid);
-        await pollTx(txid);
+        void pollTx(txid); // fire-and-forget — button unsticks immediately
       } else {
         const amountOutBase = parseUnits(amountOut, tokenOut.decimals);
         const quotedIn = parseUnits(amountIn || "0", tokenIn.decimals);
         const amountInMax = applySlippageMax(quotedIn, slippageBps);
-        await ensureAllowance(
-          tokenIn.address,
-          address,
-          SUNSWAP_ROUTER_ADDRESS,
-          amountInMax,
-          signer
-        );
+        const currentAllowance = await allowance(tokenIn.address, address, SUNSWAP_ROUTER_ADDRESS);
+        if (currentAllowance < amountInMax) {
+          throw new Error("Allowance too low. Please use the Approve button first.");
+        }
         const txid = await swapTokensForExactTokens(
           amountOutBase,
           amountInMax,
@@ -198,7 +200,7 @@ export default function SwapForm() {
           signer
         );
         setTxHash(txid);
-        await pollTx(txid);
+        void pollTx(txid); // fire-and-forget — button unsticks immediately
       }
     } catch (err) {
       setTxStatus("error");
