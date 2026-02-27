@@ -35,16 +35,21 @@ export const getAmountsOut = async (
 ): Promise<bigint[]> => {
   const tronWeb = getReadonlyTronWeb();
   const caller = ownerAddress || WTRX_ADDRESS;
-  const response = await tronWeb.transactionBuilder.triggerConstantContract(
-    SUNSWAP_ROUTER_ADDRESS,
-    "getAmountsOut(uint256,address[])",
-    {},
-    [
-      { type: "uint256", value: amountIn.toString() },
-      { type: "address[]", value: path }
-    ],
-    caller
-  );
+  let response: any;
+  try {
+    response = await tronWeb.transactionBuilder.triggerConstantContract(
+      SUNSWAP_ROUTER_ADDRESS,
+      "getAmountsOut(uint256,address[])",
+      {},
+      [
+        { type: "uint256", value: amountIn.toString() },
+        { type: "address[]", value: path }
+      ],
+      caller
+    );
+  } catch {
+    throw new Error("No liquidity for this pair or amount is too small");
+  }
   if (!response?.result?.result) {
     throw new Error("No liquidity for this pair or amount is too small");
   }
@@ -60,16 +65,21 @@ export const getAmountsIn = async (
 ): Promise<bigint[]> => {
   const tronWeb = getReadonlyTronWeb();
   const caller = ownerAddress || WTRX_ADDRESS;
-  const response = await tronWeb.transactionBuilder.triggerConstantContract(
-    SUNSWAP_ROUTER_ADDRESS,
-    "getAmountsIn(uint256,address[])",
-    {},
-    [
-      { type: "uint256", value: amountOut.toString() },
-      { type: "address[]", value: path }
-    ],
-    caller
-  );
+  let response: any;
+  try {
+    response = await tronWeb.transactionBuilder.triggerConstantContract(
+      SUNSWAP_ROUTER_ADDRESS,
+      "getAmountsIn(uint256,address[])",
+      {},
+      [
+        { type: "uint256", value: amountOut.toString() },
+        { type: "address[]", value: path }
+      ],
+      caller
+    );
+  } catch {
+    throw new Error("No liquidity for this pair or amount is too small");
+  }
   if (!response?.result?.result) {
     throw new Error("No liquidity for this pair or amount is too small");
   }
