@@ -152,27 +152,49 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
   }
 
   // ---- Extract signature from wallet response ----
-  // Wallets differ wildly in their WalletConnect response shape:
-  //   • Full signed tx at root:        { txID, raw_data, raw_data_hex, signature: [...] }
-  //   • Wrapped:                        { transaction: { txID, ..., signature: [...] } }
-  //   • Signature-only (some wallets):  { signature: ["..."] }  (without raw_data)
-  //   • Raw array (edge case):          ["<hex_sig>"]
-  const raw = response as any;
+  // Log the raw response immediately so we can always debug wallet quirks.
+  console.debug("[WC] Raw wallet response:", JSON.stringify(response));
+
+  // Some wallets return a JSON string instead of an object — parse it.
+  let raw = response as any;
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { /* leave as-is */ }
+  }
+
+  // Walk every known nesting pattern wallets use and collect the signature.
+  // Priority order: most specific → least specific.
+  const candidates = [
+    raw?.signature,
+    raw?.transaction?.signature,
+    raw?.result?.signature,
+    raw?.result?.transaction?.signature,
+  ];
 
   let signature: string[] | undefined;
-  if (Array.isArray(raw?.signature)) {
-    signature = raw.signature;
-  } else if (Array.isArray(raw?.transaction?.signature)) {
-    signature = raw.transaction.signature;
-  } else if (Array.isArray(raw)) {
-    // Some wallets return the signature as a bare array
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      signature = candidate;
+      break;
+    }
+    // Some wallets return the signature as a single hex string, not an array.
+    if (typeof candidate === "string" && candidate.length > 0) {
+      signature = [candidate];
+      break;
+    }
+  }
+
+  // Last-resort: if the response itself is a bare array of hex strings
+  // (e.g. ["abc123..."]), treat it as the signature array.
+  if (!signature && Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "string") {
     signature = raw;
   }
 
   if (!signature || signature.length === 0) {
-    console.error("[WC] Wallet returned no signature. Raw response:", JSON.stringify(raw));
+    console.error("[WC] Could not extract signature. Full response:", JSON.stringify(raw));
     throw new Error("Wallet returned an empty or invalid signature.");
   }
+
+  console.debug("[WC] Extracted signature:", signature);
 
   // ---- Reconstruct broadcast payload from original unsigned tx + signature ----
   // The original `tx` from buildContractTransaction always contains the
@@ -191,8 +213,8 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
       const tronWeb = getReadonlyTronWeb();
       const hexBytes = (tronWeb as any).utils?.code?.byteArray2hexStr
         ? (tronWeb as any).utils.code.byteArray2hexStr(
-            (tronWeb as any).utils.transaction.txPbToRawDataBytes?.(signedTx.raw_data) ?? []
-          )
+          (tronWeb as any).utils.transaction.txPbToRawDataBytes?.(signedTx.raw_data) ?? []
+        )
         : undefined;
       if (hexBytes) signedTx.raw_data_hex = hexBytes;
     } catch {
