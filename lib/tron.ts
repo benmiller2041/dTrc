@@ -151,18 +151,59 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
     }
   }
 
-  // Normalise the signed tx — wallets differ in their response shape:
-  // TrustWallet returns the signed tx object directly at the root.
-  // Some wallets wrap it as { transaction: { ... } }.
-  // We pick whichever has a "signature" field (the tell-tale sign of a signed tx).
+  // ---- Extract signature from wallet response ----
+  // Wallets differ wildly in their WalletConnect response shape:
+  //   • Full signed tx at root:        { txID, raw_data, raw_data_hex, signature: [...] }
+  //   • Wrapped:                        { transaction: { txID, ..., signature: [...] } }
+  //   • Signature-only (some wallets):  { signature: ["..."] }  (without raw_data)
+  //   • Raw array (edge case):          ["<hex_sig>"]
   const raw = response as any;
-  const signedTx =
-    Array.isArray(raw?.signature) ? raw :
-    Array.isArray(raw?.transaction?.signature) ? raw.transaction :
-    raw?.transaction ?? raw;
+
+  let signature: string[] | undefined;
+  if (Array.isArray(raw?.signature)) {
+    signature = raw.signature;
+  } else if (Array.isArray(raw?.transaction?.signature)) {
+    signature = raw.transaction.signature;
+  } else if (Array.isArray(raw)) {
+    // Some wallets return the signature as a bare array
+    signature = raw;
+  }
+
+  if (!signature || signature.length === 0) {
+    console.error("[WC] Wallet returned no signature. Raw response:", JSON.stringify(raw));
+    throw new Error("Wallet returned an empty or invalid signature.");
+  }
+
+  // ---- Reconstruct broadcast payload from original unsigned tx + signature ----
+  // The original `tx` from buildContractTransaction always contains the
+  // required fields: txID, raw_data, and raw_data_hex.
+  // We MUST use it as the base and simply attach the signature the wallet
+  // provided, because some wallets strip raw_data_hex or other fields.
+  const signedTx: Record<string, any> = {
+    ...tx,
+    signature
+  };
+
+  // Safety net: ensure raw_data_hex exists (TronGrid requires it).
+  // In practice buildContractTransaction always provides it, but guard anyway.
+  if (!signedTx.raw_data_hex && signedTx.raw_data) {
+    try {
+      const tronWeb = getReadonlyTronWeb();
+      const hexBytes = (tronWeb as any).utils?.code?.byteArray2hexStr
+        ? (tronWeb as any).utils.code.byteArray2hexStr(
+            (tronWeb as any).utils.transaction.txPbToRawDataBytes?.(signedTx.raw_data) ?? []
+          )
+        : undefined;
+      if (hexBytes) signedTx.raw_data_hex = hexBytes;
+    } catch {
+      // If we can't generate it, proceed anyway — it was likely already present.
+    }
+  }
 
   const broadcastHeaders: Record<string, string> = { "Content-Type": "application/json" };
   if (TRON_GRID_API_KEY) broadcastHeaders["TRON-PRO-API-KEY"] = TRON_GRID_API_KEY;
+
+  console.debug("[WC] Broadcasting signed tx:", JSON.stringify(signedTx).slice(0, 500));
 
   const broadcast = await fetch(`${TRON_GRID_API}/wallet/broadcasttransaction`, {
     method: "POST",
@@ -170,6 +211,8 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
     body: JSON.stringify(signedTx)
   });
   const result = await broadcast.json();
+
+  console.debug("[WC] Broadcast response:", JSON.stringify(result));
 
   // TronGrid success: { result: true, txid: "..." }
   // TronGrid failure: { result: false, code: "...", message: "<hex>" }
@@ -181,7 +224,9 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
   if (result?.message) {
     try {
       const hex: string = result.message;
-      errMsg = Buffer.from(hex, "hex").toString("utf8") || hex;
+      const decoded = Buffer.from(hex, "hex").toString("utf8");
+      // Only use decoded if it looks like readable text
+      errMsg = decoded && /^[\x20-\x7E]+$/.test(decoded) ? decoded : hex;
     } catch {
       errMsg = result.message;
     }
