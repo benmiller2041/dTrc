@@ -34,9 +34,28 @@ export const symbol = async (tokenAddress: string): Promise<string> => {
 };
 
 export const allowance = async (tokenAddress: string, owner: string, spender: string): Promise<bigint> => {
-  const contract = await getTokenContract(tokenAddress);
-  const value = await contract.allowance(owner, spender).call();
-  return BigInt(value.toString());
+  const tronWeb = getReadonlyTronWeb();
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Allowance check timed out")), 10_000)
+  );
+  const response = await Promise.race([
+    tronWeb.transactionBuilder.triggerConstantContract(
+      tokenAddress,
+      "allowance(address,address)",
+      {},
+      [
+        { type: "address", value: owner },
+        { type: "address", value: spender }
+      ],
+      owner
+    ),
+    timeout
+  ]);
+  if (!response?.result?.result) return 0n;
+  const hex: string = response.constant_result?.[0] ?? "";
+  if (!hex || hex.length < 64) return 0n;
+  // uint256 return value is always the last 64 hex chars (32 bytes)
+  return BigInt("0x" + hex.slice(-64));
 };
 
 export const approve = async (

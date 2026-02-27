@@ -95,7 +95,10 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
     if (!tronWeb) {
       throw new Error("TronLink not available to sign the transaction.");
     }
-    const signed = await tronWeb.trx.sign(tx);
+    const signTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Wallet did not respond. Make sure TronLink is unlocked and the approval popup is visible.")), 60_000)
+    );
+    const signed = await Promise.race([tronWeb.trx.sign(tx), signTimeout]);
     const result = await tronWeb.trx.sendRawTransaction(signed);
     const txid = result?.txid || result?.transaction?.txID;
     if (!txid) {
@@ -104,17 +107,23 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
     return txid;
   }
 
-  const response = await signer.client.request({
-    topic: signer.session.topic,
-    chainId: "tron:0x2b6653dc",
-    request: {
-      method: "tron_signTransaction",
-      params: {
-        address: signer.address,
-        transaction: tx
+  const wcTimeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("WalletConnect sign timed out. Check your mobile wallet for a pending request.")), 120_000)
+  );
+  const response = await Promise.race([
+    signer.client.request({
+      topic: signer.session.topic,
+      chainId: "tron:0x2b6653dc",
+      request: {
+        method: "tron_signTransaction",
+        params: {
+          address: signer.address,
+          transaction: tx
+        }
       }
-    }
-  });
+    }),
+    wcTimeout
+  ]);
 
   const signedTx = (response as any)?.transaction ?? response;
   const broadcast = await fetch(`${TRON_GRID_API}/wallet/broadcasttransaction`, {
