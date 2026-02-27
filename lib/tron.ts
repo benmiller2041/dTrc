@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import TronWebLib from "tronweb";
-import { DEFAULT_FEE_LIMIT, TRON_GRID_API, WTRX_ADDRESS } from "./constants";
+import { DEFAULT_FEE_LIMIT, TRON_GRID_API, TRON_GRID_API_KEY, WTRX_ADDRESS } from "./constants";
 
 export type TronWalletState = {
   address: string | null;
@@ -47,8 +47,11 @@ export const getReadonlyTronWeb = (): TronWeb => {
   if (typeof TronWebCtor !== "function") {
     throw new Error("TronWeb constructor not available in this environment.");
   }
+  const headers: Record<string, string> = {};
+  if (TRON_GRID_API_KEY) headers["TRON-PRO-API-KEY"] = TRON_GRID_API_KEY;
   const instance = new TronWebCtor({
-    fullHost: TRON_GRID_API
+    fullHost: TRON_GRID_API,
+    headers
   });
   // Ensure constant calls have a valid owner_address for TRONGrid.
   instance.setAddress(WTRX_ADDRESS);
@@ -67,13 +70,19 @@ export const buildContractTransaction = async (
   // Prefer TronLink's authenticated TronWeb for building transactions — the
   // read-only instance has no API key and TronGrid will throttle/hang it.
   const tronWeb = getTronWeb() ?? getReadonlyTronWeb();
-  const result = await tronWeb.transactionBuilder.triggerSmartContract(
-    contractAddress,
-    functionSelector,
-    { feeLimit, callValue },
-    parameters,
-    ownerAddress
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Transaction build timed out. Check your network connection.")), 15_000)
   );
+  const result = await Promise.race([
+    tronWeb.transactionBuilder.triggerSmartContract(
+      contractAddress,
+      functionSelector,
+      { feeLimit, callValue },
+      parameters,
+      ownerAddress
+    ),
+    timeout
+  ]);
   if (!result?.transaction) {
     throw new Error("Failed to build transaction.");
   }
