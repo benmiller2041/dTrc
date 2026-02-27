@@ -14,6 +14,7 @@ export type WalletConnectSigner = {
   address: string;
   client: any;
   session: any;
+  modal: any; // WalletConnectModal instance for redirect-to-wallet UI
 };
 
 export type TronLinkSigner = {
@@ -110,20 +111,45 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
   const wcTimeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error("WalletConnect sign timed out. Check your mobile wallet for a pending request.")), 120_000)
   );
-  const response = await Promise.race([
-    signer.client.request({
-      topic: signer.session.topic,
-      chainId: "tron:0x2b6653dc",
-      request: {
-        method: "tron_signTransaction",
-        params: {
-          address: signer.address,
-          transaction: tx
-        }
-      }
-    }),
-    wcTimeout
-  ]);
+
+  // Always resolve the topic from the live client session store so stale
+  // React state doesn't cause "no matching key" errors.
+  const liveSessions = signer.client.session.getAll();
+  const liveSession = liveSessions.find((s: any) => s.topic === signer.session.topic) ?? signer.session;
+
+  // Fire the sign request to the WalletConnect relay FIRST, then redirect
+  // the user to their wallet so it wakes up and shows the signing prompt.
+  const requestPromise = signer.client.request({
+    topic: liveSession.topic,
+    chainId: "tron:0x2b6653dc",
+    request: {
+      method: "tron_signTransaction",
+      // Array format required by TrustWallet and most TRON mobile wallets.
+      params: [{ address: signer.address, transaction: tx }]
+    }
+  });
+
+  // Redirect user to wallet so it reconnects to the relay and shows the prompt.
+  const peerRedirect = liveSession.peer?.metadata?.redirect;
+  const walletDeepLink = peerRedirect?.native || peerRedirect?.universal || null;
+  let modalOpened = false;
+  if (walletDeepLink && typeof window !== "undefined") {
+    // Using href (not window.open) so it opens the wallet app without
+    // leaving the dapp page on mobile browsers.
+    window.location.href = walletDeepLink;
+  } else if (signer.modal) {
+    // Fallback: open WalletConnect modal so user sees a "check your wallet" UI.
+    try { await signer.modal.openModal(); modalOpened = true; } catch { /* ignore */ }
+  }
+
+  let response: any;
+  try {
+    response = await Promise.race([requestPromise, wcTimeout]);
+  } finally {
+    if (modalOpened) {
+      try { signer.modal.closeModal(); } catch { /* ignore */ }
+    }
+  }
 
   const signedTx = (response as any)?.transaction ?? response;
   const broadcast = await fetch(`${TRON_GRID_API}/wallet/broadcasttransaction`, {

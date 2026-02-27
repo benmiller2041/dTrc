@@ -82,9 +82,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           chains: ["tron:0x2b6653dc"],
           events: ["accountsChanged", "chainChanged"]
         }
-      },
-      sessionProperties: {
-        tron_method_version: "v1"
       }
     });
 
@@ -128,11 +125,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (tron.isConnected && tron.address) {
       return { kind: "tronlink", address: tron.address };
     }
-    if (walletConnectState.connected && wcAddress && client && session) {
-      return { kind: "walletconnect", address: wcAddress, client, session };
+    if (walletConnectState.connected && wcAddress && client && session && modal) {
+      return { kind: "walletconnect", address: wcAddress, client, session, modal };
     }
     return null;
-  }, [tron.isConnected, tron.address, walletConnectState.connected, wcAddress, client, session]);
+  }, [tron.isConnected, tron.address, walletConnectState.connected, wcAddress, client, session, modal]);
 
   const chainId = useMemo(() => {
     if (tron.chainId) return tron.chainId;
