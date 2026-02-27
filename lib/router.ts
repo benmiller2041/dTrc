@@ -1,4 +1,4 @@
-import { SUNSWAP_ROUTER_ADDRESS, USDT_TRC20_ADDRESS } from "./constants";
+import { SUNSWAP_ROUTER_ADDRESS, USDT_TRC20_ADDRESS, WTRX_ADDRESS } from "./constants";
 import routerAbi from "../abis/router.json";
 import { buildContractTransaction, getReadonlyTronWeb, signAndBroadcast, WalletSigner } from "./tron";
 
@@ -12,17 +12,45 @@ export const getRouterContract = async () => {
   return tronWeb.contract(routerAbi as any, SUNSWAP_ROUTER_ADDRESS);
 };
 
+/**
+ * Manually decode ABI-encoded uint256[] from a hex string.
+ * Layout: [32-byte offset][32-byte length][length × 32-byte elements]
+ */
+const decodeUint256Array = (hex: string): bigint[] => {
+  const raw = hex.startsWith("0x") ? hex.slice(2) : hex;
+  if (raw.length < 128) throw new Error("Router returned invalid ABI data");
+  const length = parseInt(raw.slice(64, 128), 16);
+  const result: bigint[] = [];
+  for (let i = 0; i < length; i++) {
+    const start = 128 + i * 64;
+    result.push(BigInt("0x" + raw.slice(start, start + 64)));
+  }
+  return result;
+};
+
 export const getAmountsOut = async (
   amountIn: bigint,
   path: string[],
   ownerAddress?: string | null
 ): Promise<bigint[]> => {
-  const router = await getRouterContract();
-  const result = await router
-    .getAmountsOut(amountIn.toString(), path)
-    .call(ownerAddress ? { from: ownerAddress } : undefined);
-  const amounts: any[] = Array.isArray(result) ? result : Object.values(result);
-  return amounts.map((value: any) => BigInt(value.toString()));
+  const tronWeb = getReadonlyTronWeb();
+  const caller = ownerAddress || WTRX_ADDRESS;
+  const response = await tronWeb.transactionBuilder.triggerConstantContract(
+    SUNSWAP_ROUTER_ADDRESS,
+    "getAmountsOut(uint256,address[])",
+    {},
+    [
+      { type: "uint256", value: amountIn.toString() },
+      { type: "address[]", value: path }
+    ],
+    caller
+  );
+  if (!response?.result?.result) {
+    throw new Error("No liquidity for this pair or amount is too small");
+  }
+  const hex: string = response.constant_result?.[0] ?? "";
+  if (!hex) throw new Error("Empty response from router");
+  return decodeUint256Array(hex);
 };
 
 export const getAmountsIn = async (
@@ -30,12 +58,24 @@ export const getAmountsIn = async (
   path: string[],
   ownerAddress?: string | null
 ): Promise<bigint[]> => {
-  const router = await getRouterContract();
-  const result = await router
-    .getAmountsIn(amountOut.toString(), path)
-    .call(ownerAddress ? { from: ownerAddress } : undefined);
-  const amounts: any[] = Array.isArray(result) ? result : Object.values(result);
-  return amounts.map((value: any) => BigInt(value.toString()));
+  const tronWeb = getReadonlyTronWeb();
+  const caller = ownerAddress || WTRX_ADDRESS;
+  const response = await tronWeb.transactionBuilder.triggerConstantContract(
+    SUNSWAP_ROUTER_ADDRESS,
+    "getAmountsIn(uint256,address[])",
+    {},
+    [
+      { type: "uint256", value: amountOut.toString() },
+      { type: "address[]", value: path }
+    ],
+    caller
+  );
+  if (!response?.result?.result) {
+    throw new Error("No liquidity for this pair or amount is too small");
+  }
+  const hex: string = response.constant_result?.[0] ?? "";
+  if (!hex) throw new Error("Empty response from router");
+  return decodeUint256Array(hex);
 };
 
 export const swapExactTokensForTokens = async (

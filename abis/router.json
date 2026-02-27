@@ -2,7 +2,7 @@
   {
     "name": "getAmountsOut",
     "type": "function",
-    "constant": true,
+    "stateMutability": "view",
     "inputs": [
       { "name": "amountIn", "type": "uint256" },
       { "name": "path", "type": "address[]" }
@@ -12,7 +12,7 @@
   {
     "name": "getAmountsIn",
     "type": "function",
-    "constant": true,
+    "stateMutability": "view",
     "inputs": [
       { "name": "amountOut", "type": "uint256" },
       { "name": "path", "type": "address[]" }
@@ -22,7 +22,7 @@
   {
     "name": "swapExactTokensForTokens",
     "type": "function",
-    "constant": false,
+    "stateMutability": "nonpayable",
     "inputs": [
       { "name": "amountIn", "type": "uint256" },
       { "name": "amountOutMin", "type": "uint256" },
@@ -35,7 +35,7 @@
   {
     "name": "swapTokensForExactTokens",
     "type": "function",
-    "constant": false,
+    "stateMutability": "nonpayable",
     "inputs": [
       { "name": "amountOut", "type": "uint256" },
       { "name": "amountInMax", "type": "uint256" },

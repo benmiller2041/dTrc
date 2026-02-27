@@ -29,6 +29,17 @@ declare global {
         parameters: { type: string; value: any }[],
         ownerAddress: string
       ) => Promise<{ transaction: any }>;
+      triggerConstantContract: (
+        contractAddress: string,
+        functionSelector: string,
+        options: object,
+        parameters: { type: string; value: any }[],
+        issuerAddress: string
+      ) => Promise<{
+        result: { result: boolean; message?: string };
+        constant_result: string[];
+        energy_used: number;
+      }>;
     };
     contract: (abi?: any, address?: string) => any;
     toBigNumber: (value: string | number) => any;
