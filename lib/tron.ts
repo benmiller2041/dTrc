@@ -151,17 +151,44 @@ export const signAndBroadcast = async (tx: any, signer: WalletSigner): Promise<s
     }
   }
 
-  const signedTx = (response as any)?.transaction ?? response;
+  // Normalise the signed tx — wallets differ in their response shape:
+  // TrustWallet returns the signed tx object directly at the root.
+  // Some wallets wrap it as { transaction: { ... } }.
+  // We pick whichever has a "signature" field (the tell-tale sign of a signed tx).
+  const raw = response as any;
+  const signedTx =
+    Array.isArray(raw?.signature) ? raw :
+    Array.isArray(raw?.transaction?.signature) ? raw.transaction :
+    raw?.transaction ?? raw;
+
+  const broadcastHeaders: Record<string, string> = { "Content-Type": "application/json" };
+  if (TRON_GRID_API_KEY) broadcastHeaders["TRON-PRO-API-KEY"] = TRON_GRID_API_KEY;
+
   const broadcast = await fetch(`${TRON_GRID_API}/wallet/broadcasttransaction`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: broadcastHeaders,
     body: JSON.stringify(signedTx)
   });
   const result = await broadcast.json();
-  if (!result?.result) {
-    throw new Error(result?.message || "WalletConnect broadcast failed.");
+
+  // TronGrid success: { result: true, txid: "..." }
+  // TronGrid failure: { result: false, code: "...", message: "<hex>" }
+  const txid = result?.txid as string | undefined;
+  if (result?.result === true && txid) return txid;
+
+  // Decode hex error message if present
+  let errMsg = "WalletConnect broadcast failed.";
+  if (result?.message) {
+    try {
+      const hex: string = result.message;
+      errMsg = Buffer.from(hex, "hex").toString("utf8") || hex;
+    } catch {
+      errMsg = result.message;
+    }
+  } else if (result?.code) {
+    errMsg = `Broadcast failed: ${result.code}`;
   }
-  return result.txid;
+  throw new Error(errMsg);
 };
 
 export const useTronWallet = (): TronWalletState => {
