@@ -170,7 +170,7 @@ export const useTronWallet = (): TronWalletState => {
 
 export const parseUnits = (value: string, decimals: number): bigint => {
   if (!value) return 0n;
-  if (!/^\d*\\.?\\d*$/.test(value)) return 0n;
+  if (!/^\d*\.?\d*$/.test(value)) return 0n;
   const [whole, fraction = ""] = value.split(".");
   const sanitizedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
   const base = BigInt(10) ** BigInt(decimals);
